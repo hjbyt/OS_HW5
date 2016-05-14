@@ -22,7 +22,8 @@ def is_power2(num):
 
 
 def compile_pattern(input, output, n):
-    input_lines = [line for line in input.read().splitlines() if not line.startswith('!')]
+    input_lines = input.read().splitlines()
+    input_lines = [line for line in input_lines if not line.startswith('!') and line.strip() != '']
     for x in range(n):
         for y in range(n):
             try:
