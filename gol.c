@@ -152,16 +152,16 @@ void simulate_step_on_cell(Matrix* source, Matrix* dest, unsigned int x, unsigne
 unsigned int count_alive_neighbors(Matrix* matrix, unsigned int x, unsigned int y)
 {
 	unsigned int alive_neighbors = 0;
-	for (int i = x - 1; i < x + 1; ++i)
+	for (int i = x - 1; i <= x + 1; ++i)
 	{
-		for (int j = y - 1; j < y + 1; ++j)
+		for (int j = y - 1; j <= y + 1; ++j)
 		{
 			if (i < 0 || i >= matrix->n
 					|| j < 0 || j >= matrix->n
 					|| (i == x && j == y)) {
 				continue;
 			}
-			if (is_alive(matrix, x, y)) {
+			if (is_alive(matrix, i, j)) {
 				alive_neighbors += 1;
 			}
 		}
