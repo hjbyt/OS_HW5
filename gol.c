@@ -59,6 +59,7 @@ void simulate_step_on_cell(Matrix* source, Matrix* dest, unsigned int x, unsigne
 unsigned int count_alive_neighbors(Matrix* matrix, unsigned int x, unsigned int y);
 bool is_alive(Matrix* matrix, unsigned int x, unsigned int y);
 void load_matrix(Matrix* matrix, char* file_path);
+void print_matrix(Matrix* matrix);
 void save_matrix(Matrix* matrix, char* file_path);
 void create_matrix(Matrix* matrix, unsigned int n);
 void destroy_matrix(Matrix* matrix);
@@ -88,6 +89,7 @@ int main(int argc, char** argv)
 	simulate(steps);
 
 	//TODO: comment out
+	//print_matrix(game_matrix);
 	save_matrix(game_matrix, "result.bin");
 
 	destroy_matrix(helper_matrix);
@@ -194,6 +196,21 @@ void load_matrix(Matrix* matrix, char* file_path)
 			VERIFY(read(fd, &c, 1) == 1, "read from input failed");
 			matrix->cols[x][y] = c == '\0' ? 0 : 1;
 		}
+	}
+}
+
+void print_matrix(Matrix* matrix)
+{
+	//TODO: optimize (?)
+	for (unsigned x = 0; x < matrix->n; ++x)
+	{
+		for (unsigned y = 0; y < matrix->n; ++y)
+		{
+			char c = (char)matrix->cols[x][y];
+			c = c == 1 ? 'O' : '.';
+			printf("%c", c);
+		}
+		printf("\n");
 	}
 }
 
