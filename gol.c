@@ -56,7 +56,7 @@ Matrix* helper_matrix = &_matrix2;
 void simulate(unsigned int steps);
 void simulate_step();
 void simulate_step_on_cell(Matrix* source, Matrix* dest, unsigned int x, unsigned int y);
-unsigned int count_living_neighbors(Matrix* matrix, unsigned int x, unsigned int y);
+unsigned int count_alive_neighbors(Matrix* matrix, unsigned int x, unsigned int y);
 bool is_alive(Matrix* matrix, unsigned int x, unsigned int y);
 void load_matrix(Matrix* matrix, char* file_path);
 void save_matrix(Matrix* matrix, char* file_path);
@@ -83,7 +83,6 @@ int main(int argc, char** argv)
 
 	load_matrix(game_matrix, file_path);
 	create_matrix(helper_matrix, game_matrix->n);
-
 
 	//TODO: Measure time
 	simulate(steps);
@@ -128,9 +127,9 @@ void simulate_step()
 
 void simulate_step_on_cell(Matrix* source, Matrix* dest, unsigned int x, unsigned int y)
 {
-	unsigned int living_neighbors = count_living_neighbors(source, x, y);
+	unsigned int alive_neighbors = count_alive_neighbors(source, x, y);
 	if (is_alive(source, x, y)) {
-		if (living_neighbors < 2 || living_neighbors > 3) {
+		if (alive_neighbors < 2 || alive_neighbors > 3) {
 			// Kill cell
 			dest->cols[x][y] = 0;
 		} else {
@@ -138,7 +137,7 @@ void simulate_step_on_cell(Matrix* source, Matrix* dest, unsigned int x, unsigne
 			dest->cols[x][y] = 1;
 		}
 	} else /* Cell is dead */ {
-		if (living_neighbors == 3) {
+		if (alive_neighbors == 3) {
 			// Revive cell
 			dest->cols[x][y] = 1;
 		} else {
@@ -148,9 +147,9 @@ void simulate_step_on_cell(Matrix* source, Matrix* dest, unsigned int x, unsigne
 	}
 }
 
-unsigned int count_living_neighbors(Matrix* matrix, unsigned int x, unsigned int y)
+unsigned int count_alive_neighbors(Matrix* matrix, unsigned int x, unsigned int y)
 {
-	unsigned int living_neighbors = 0;
+	unsigned int alive_neighbors = 0;
 	for (int i = x - 1; i < x + 1; ++i)
 	{
 		for (int j = y - 1; j < y + 1; ++j)
@@ -161,11 +160,11 @@ unsigned int count_living_neighbors(Matrix* matrix, unsigned int x, unsigned int
 				continue;
 			}
 			if (is_alive(matrix, x, y)) {
-				living_neighbors += 1;
+				alive_neighbors += 1;
 			}
 		}
 	}
-	return living_neighbors;
+	return alive_neighbors;
 }
 
 bool is_alive(Matrix* matrix, unsigned int x, unsigned int y)
