@@ -36,7 +36,7 @@ typedef int bool;
 typedef struct Matrix_t
 {
 	unsigned int n;
-	int** rows;
+	int** cols;
 } Matrix;
 
 //
@@ -44,15 +44,20 @@ typedef struct Matrix_t
 //
 
 
-Matrix matrix1;
-Matrix matrix2;
-Matrix* game_matrix = &matrix1;
-Matrix* helper_matrix = &matrix2;
+Matrix _matrix1;
+Matrix _matrix2;
+Matrix* game_matrix = &_matrix1;
+Matrix* helper_matrix = &_matrix2;
 
 //
 // Function Declarations
 //
 
+void simulate(unsigned int steps);
+void simulate_step();
+void simulate_step_on_cell(Matrix* source, Matrix* dest, unsigned int x, unsigned int y);
+unsigned int count_living_neighbors(Matrix* matrix, unsigned int x, unsigned int y);
+bool is_alive(Matrix* matrix, unsigned int x, unsigned int y);
 void load_matrix(Matrix* matrix, char* file_path);
 void save_matrix(Matrix* matrix, char* file_path);
 void create_matrix(Matrix* matrix, unsigned int n);
@@ -77,13 +82,95 @@ int main(int argc, char** argv)
 	VERIFY(errno == 0 || steps < 0, "Invallid argument given as <steps>");
 
 	load_matrix(game_matrix, file_path);
+	create_matrix(helper_matrix, game_matrix->n);
 
-	//TODO XXX
-	//save_matrix(game_matrix, "test_out.bin");
 
+	//TODO: Measure time
+	simulate(steps);
+
+	//TODO: comment out
+	save_matrix(game_matrix, "result.bin");
+
+	destroy_matrix(helper_matrix);
 	destroy_matrix(game_matrix);
 
 	return EXIT_SUCCESS;
+}
+
+void simulate(unsigned int steps)
+{
+	assert(game_matrix != NULL);
+	assert(helper_matrix != NULL);
+	assert(game_matrix != helper_matrix);
+	assert(game_matrix->n == helper_matrix->n);
+
+	for (int i = 0; i < steps; ++i)
+	{
+		simulate_step();
+	}
+}
+
+void simulate_step()
+{
+	for (unsigned x = 0; x < game_matrix->n; ++x)
+	{
+		for (unsigned y = 0; y < game_matrix->n; ++y)
+		{
+			simulate_step_on_cell(game_matrix, helper_matrix, x, y);
+		}
+	}
+
+	// Swap game and helper matrices
+	Matrix* temp = game_matrix;
+	game_matrix = helper_matrix;
+	helper_matrix = temp;
+}
+
+void simulate_step_on_cell(Matrix* source, Matrix* dest, unsigned int x, unsigned int y)
+{
+	unsigned int living_neighbors = count_living_neighbors(source, x, y);
+	if (is_alive(source, x, y)) {
+		if (living_neighbors < 2 || living_neighbors > 3) {
+			// Kill cell
+			dest->cols[x][y] = 0;
+		} else {
+			// Keep alive
+			dest->cols[x][y] = 1;
+		}
+	} else /* Cell is dead */ {
+		if (living_neighbors == 3) {
+			// Revive cell
+			dest->cols[x][y] = 1;
+		} else {
+			// Keep dead
+			dest->cols[x][y] = 0;
+		}
+	}
+}
+
+unsigned int count_living_neighbors(Matrix* matrix, unsigned int x, unsigned int y)
+{
+	unsigned int living_neighbors = 0;
+	for (int i = x - 1; i < x + 1; ++i)
+	{
+		for (int j = y - 1; j < y + 1; ++j)
+		{
+			if (i < 0 || i >= matrix->n
+					|| j < 0 || j >= matrix->n
+					|| (i == x && j == y)) {
+				continue;
+			}
+			if (is_alive(matrix, x, y)) {
+				living_neighbors += 1;
+			}
+		}
+	}
+	return living_neighbors;
+}
+
+bool is_alive(Matrix* matrix, unsigned int x, unsigned int y)
+{
+	return matrix->cols[x][y] == 1;
 }
 
 void load_matrix(Matrix* matrix, char* file_path)
@@ -106,7 +193,7 @@ void load_matrix(Matrix* matrix, char* file_path)
 		{
 			char c;
 			VERIFY(read(fd, &c, 1) == 1, "read from input failed");
-			matrix->rows[x][y] = c == '\0' ? 0 : 1;
+			matrix->cols[x][y] = c == '\0' ? 0 : 1;
 		}
 	}
 }
@@ -121,7 +208,7 @@ void save_matrix(Matrix* matrix, char* file_path)
 	{
 		for (unsigned y = 0; y < matrix->n; ++y)
 		{
-			char c = (char)matrix->rows[x][y];
+			char c = (char)matrix->cols[x][y];
 			VERIFY(write(fd, &c, 1) == 1, "write to output failed");
 		}
 	}
@@ -130,12 +217,12 @@ void save_matrix(Matrix* matrix, char* file_path)
 void create_matrix(Matrix* matrix, unsigned int n)
 {
 	matrix->n = n;
-	matrix->rows = (int**)malloc(sizeof(int*) * n);
-	VERIFY(matrix->rows != NULL, "malloc failed");
+	matrix->cols = (int**)malloc(sizeof(int*) * n);
+	VERIFY(matrix->cols != NULL, "malloc failed");
 	for (unsigned int i = 0; i < n; ++i)
 	{
-		matrix->rows[i] = (int*)malloc(sizeof(int) * n);
-		VERIFY(matrix->rows[i] != NULL, "malloc failed");
+		matrix->cols[i] = (int*)malloc(sizeof(int) * n);
+		VERIFY(matrix->cols[i] != NULL, "malloc failed");
 	}
 }
 
@@ -143,9 +230,9 @@ void destroy_matrix(Matrix* matrix)
 {
 	for (unsigned int i = 0; i < matrix->n; ++i)
 	{
-		free(matrix->rows[i]);
+		free(matrix->cols[i]);
 	}
-	free(matrix->rows);
+	free(matrix->cols);
 }
 
 int is_power_of_2 (unsigned int x)
