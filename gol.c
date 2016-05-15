@@ -81,7 +81,7 @@ int main(int argc, char** argv)
 	char* file_path = argv[1];
 	errno = 0;
 	int steps = strtol(argv[2], NULL, 0);
-	VERIFY(errno == 0 || steps < 0, "Invallid argument given as <steps>");
+	VERIFY(errno == 0 && steps >= 0, "Invallid argument given as <steps>");
 
 	load_matrix(game_matrix, file_path);
 	create_matrix(helper_matrix, game_matrix->n);
