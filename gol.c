@@ -273,6 +273,8 @@ int is_power_of_2 (unsigned int x)
 }
 
 // Note: taken from http:unsigned int/stackoverflow.com/a/1101217
+// This is used instead of the standard sqrt(),
+// because the standard math sqrt requires linking with libmath.
 unsigned int sqrt_(unsigned int n)
 {
 	unsigned int op  = n;
