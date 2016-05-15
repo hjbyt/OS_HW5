@@ -75,6 +75,11 @@ Matrix _matrix2;
 Matrix* game_matrix = &_matrix1;
 Matrix* helper_matrix = &_matrix2;
 TaskQueue tasks;
+bool is_simulation_step_complete = FALSE;
+pthread_cond_t simulation_step_complete_cond;
+pthread_mutex_t simulation_step_mutex;
+int completed_tasks_count = 0;
+int matrix_size = 0;
 
 //
 // Function Declarations
@@ -125,15 +130,30 @@ int main(int argc, char** argv)
 
 	load_matrix(game_matrix, file_path);
 	create_matrix(helper_matrix, game_matrix->n);
+	matrix_size = game_matrix->n * game_matrix->n;
+
+	PCHECK(pthread_mutex_init(&simulation_step_mutex, NULL), "init mutex failed");
+	PCHECK(pthread_cond_init(&simulation_step_complete_cond, NULL), "init condition variable failed");
+
+	pthread_t threads[thread_count];
+	for (int i = 0; i < thread_count; ++i)
+	{
+		PCHECK(pthread_create(&threads[i], NULL, execute_tasks, NULL), "create thread failed");
+	}
 
 	unsigned long time_milliseconds = simulate(steps);
 	//TODO: comment out ?
 	printf("Simulated %d steps in %lu milliseconds using %d threads\n",
 			steps, time_milliseconds, thread_count);
 
+	PCHECK(pthread_cond_destroy(&simulation_step_complete_cond), "destroy condition variable failed");
+	PCHECK(pthread_mutex_destroy(&simulation_step_mutex), "destroy mutex failed");
+
 	//TODO: comment out
 	print_matrix(game_matrix);
 	//save_matrix(game_matrix, "result.bin");
+
+	//TODO: cancel, join threads?
 
 	destroy_matrix(helper_matrix);
 	destroy_matrix(game_matrix);
@@ -169,13 +189,20 @@ unsigned long simulate(int steps)
 
 void simulate_step()
 {
-	for (int x = 0; x < game_matrix->n; ++x)
+	is_simulation_step_complete = FALSE;
+	completed_tasks_count = 0;
+	Task* task = create_task(0, 0, game_matrix->n, game_matrix->n);
+	lock_queue(); //TODO: remove ???
+	enqueue_task(task);
+	unlock_queue();
+
+	// Wait for task simulation step complete signal
+	PCHECK(pthread_mutex_lock(&simulation_step_mutex), "lock mutex failed");
+	while (!is_simulation_step_complete)
 	{
-		for (int y = 0; y < game_matrix->n; ++y)
-		{
-			simulate_step_on_cell(game_matrix, helper_matrix, x, y);
-		}
+		PCHECK(pthread_cond_wait(&simulation_step_complete_cond, &simulation_step_mutex), "wait on condition variable failed");
 	}
+	PCHECK(pthread_mutex_unlock(&simulation_step_mutex), "unlock mutex failed");
 
 	// Swap game and helper matrices
 	Matrix* temp = game_matrix;
@@ -394,6 +421,7 @@ void enqueue_task(Task* task)
 	if (tasks.first == NULL) {
 		tasks.first = task;
 		tasks.is_empty = FALSE;
+		PCHECK(pthread_cond_signal(&tasks.not_empty_cond), "condition signal failed");
 	}
 }
 
@@ -432,8 +460,14 @@ void* execute_tasks(void* arg)
 		//TODO: should we use really unlock here,
 		//      or should we unlock after creating sub-tasks?
 		unlock_queue();
+
 		execute_task(task);
 		destroy_task(task);
+		int completed_tasks = __sync_add_and_fetch(&completed_tasks_count, 1);
+		if (completed_tasks == matrix_size) {
+			is_simulation_step_complete = TRUE;
+			PCHECK(pthread_cond_signal(&simulation_step_complete_cond), "condition signal failed");
+		}
 	}
 
 	return NULL;
