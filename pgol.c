@@ -40,6 +40,21 @@ typedef struct Matrix_t
 	int** cols;
 } Matrix;
 
+typedef struct Task_t
+{
+	int x;
+	int y;
+	int dx;
+	int dy;
+	struct Task_t* next;
+} Task;
+
+typedef struct TaskQueue_t
+{
+	Task* first;
+	Task* last;
+} TaskQueue;
+
 //
 // Globals
 //
@@ -49,6 +64,7 @@ Matrix _matrix1;
 Matrix _matrix2;
 Matrix* game_matrix = &_matrix1;
 Matrix* helper_matrix = &_matrix2;
+TaskQueue tasks;
 
 //
 // Function Declarations
@@ -73,22 +89,25 @@ int is_power_of_2 (unsigned int x);
 
 int main(int argc, char** argv)
 {
-	if (argc != 3) {
-		printf("Usage: ./gol <file> <number of steps>\n");
+	if (argc != 4) {
+		printf("Usage: ./pgol <file> <steps> <threads>\n");
 		return EXIT_FAILURE;
 	}
 
 	char* file_path = argv[1];
 	errno = 0;
 	int steps = strtol(argv[2], NULL, 0);
-	VERIFY(errno == 0 || steps < 0, "Invallid argument given as <steps>");
+	VERIFY(errno == 0 && steps >= 0, "Invallid argument given as <steps>");
+	int thread_count = strtol(argv[3], NULL, 0);
+	VERIFY(errno == 0 && thread_count >= 1, "Invallid argument given as <threads>");
 
 	load_matrix(game_matrix, file_path);
 	create_matrix(helper_matrix, game_matrix->n);
 
 	unsigned long time_milliseconds = simulate(steps);
 	//TODO: comment out ?
-	printf("Simulated %d steps in %lu milliseconds\n", steps, time_milliseconds);
+	printf("Simulated %d steps in %lu milliseconds using %d threads\n",
+			steps, time_milliseconds, thread_count);
 
 	//TODO: comment out
 	print_matrix(game_matrix);
