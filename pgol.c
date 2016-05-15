@@ -10,17 +10,24 @@
 #include <string.h>
 #include <stdlib.h>
 #include <error.h>
+#include <pthread.h>
 
 //
 // Macros
 //
 
-// Return number of elements in static array
-#define ARRAY_LENGTH(array) (sizeof(array)/sizeof(array[0]))
 // Exit with an error message
 #define ERROR(...) error(EXIT_FAILURE, errno, __VA_ARGS__)
 // Verify that a condition holds, else exit with an error.
 #define VERIFY(condition, ...) if (!(condition)) ERROR(__VA_ARGS__)
+// Verify that a pthread operation succeeds, else exit with an error.
+#define PCHECK(pthread_operation, ...)            \
+	do {                                          \
+		int _r = (pthread_operation);             \
+		if (_r != 0) {                            \
+			error(EXIT_FAILURE, _r, __VA_ARGS__); \
+		}                                         \
+	} while(0)
 
 //
 // Constants
@@ -53,6 +60,7 @@ typedef struct TaskQueue_t
 {
 	Task* first;
 	Task* last;
+	pthread_mutex_t mutex;
 } TaskQueue;
 
 //
@@ -82,6 +90,18 @@ void create_matrix(Matrix* matrix, int n);
 void destroy_matrix(Matrix* matrix);
 unsigned int sqrt_(unsigned int n);
 int is_power_of_2 (unsigned int x);
+
+void init_queue();
+void uninit_queue();
+void lock_queue();
+void unlock_queue();
+Task* create_task(int x, int y, int dx, int dy);
+void destroy_task(Task* task);
+void enqueue_task(Task* task);
+Task* dequeue_task();
+void enqueue_task_safe(Task* task);
+Task* dequeue_task_safe();
+void signal_finished_tasks();
 
 //
 // Implementation
@@ -318,4 +338,77 @@ unsigned int sqrt_(unsigned int n)
         one >>= 2;
     }
     return res;
+}
+
+void init_queue()
+{
+	PCHECK(pthread_mutex_init(&tasks.mutex, NULL), "init mutex failed");
+}
+
+void uninit_queue()
+{
+	PCHECK(pthread_mutex_destroy(&tasks.mutex), "destroy mutex failed");
+}
+
+void lock_queue()
+{
+	PCHECK(pthread_mutex_lock(&tasks.mutex), "lock mutex failed");
+}
+
+void unlock_queue()
+{
+	PCHECK(pthread_mutex_unlock(&tasks.mutex), "unlock mutex failed");
+}
+
+Task* create_task(int x, int y, int dx, int dy)
+{
+	Task* task = (Task*)malloc(sizeof(*task));
+	VERIFY(task != NULL, "malloc task failed");
+	task->x = x;
+	task->y = y;
+	task->dx = dx;
+	task->dy = dy;
+	task->next = NULL;
+	return task;
+}
+
+void destroy_task(Task* task)
+{
+	free(task);
+}
+
+void enqueue_task(Task* task)
+{
+	task->next = NULL;
+	tasks.last->next = task;
+	tasks.last = task;
+}
+
+Task* dequeue_task()
+{
+	Task* task = tasks.first;
+	tasks.first = tasks.first->next;
+	task->next = NULL;
+	return task;
+}
+
+void enqueue_task_safe(Task* task)
+{
+	lock_queue();
+	enqueue_task(task);
+	unlock_queue();
+}
+
+Task* dequeue_task_safe()
+{
+	lock_queue();
+	Task* task = dequeue_task();
+	unlock_queue();
+	return task;
+}
+
+
+void signal_finished_tasks()
+{
+	//TODO
 }
