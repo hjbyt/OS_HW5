@@ -102,6 +102,8 @@ Task* dequeue_task();
 void enqueue_task_safe(Task* task);
 Task* dequeue_task_safe();
 void signal_finished_tasks();
+void* execute_tasks(void* arg);
+void execute_task(Task* task);
 
 //
 // Implementation
@@ -411,4 +413,39 @@ Task* dequeue_task_safe()
 void signal_finished_tasks()
 {
 	//TODO
+}
+
+void* execute_tasks(void* arg)
+{
+	while (TRUE)
+	{
+		//TODO: should we use unsafe version, and unlock after creating sub-tasks?
+		Task* task = dequeue_task_safe();
+		execute_task(task);
+		destroy_task(task);
+	}
+
+	return NULL;
+}
+
+void execute_task(Task* task)
+{
+	if (task->dx == 1 && task->dy == 1) {
+		simulate_step_on_cell(game_matrix, helper_matrix, task->x, task->y);
+	} else {
+		int half_dx = task->dx / 2;
+		int half_dy = task->dy / 2;
+		assert(half_dx * 2 == task->dx);
+		assert(half_dy * 2 == task->dy);
+		Task* task1 = create_task(task->x          , task->y          , half_dx, half_dy);
+		Task* task2 = create_task(task->x + half_dx, task->y          , half_dx, half_dy);
+		Task* task3 = create_task(task->x          , task->y + half_dy, half_dx, half_dy);
+		Task* task4 = create_task(task->x + half_dx, task->y + half_dy, half_dx, half_dy);
+		lock_queue();
+		enqueue_task(task1);
+		enqueue_task(task2);
+		enqueue_task(task3);
+		enqueue_task(task4);
+		unlock_queue();
+	}
 }
