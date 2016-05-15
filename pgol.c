@@ -60,7 +60,9 @@ typedef struct TaskQueue_t
 {
 	Task* first;
 	Task* last;
+	bool is_empty;
 	pthread_mutex_t mutex;
+	pthread_cond_t not_empty_cond;
 } TaskQueue;
 
 //
@@ -99,8 +101,6 @@ Task* create_task(int x, int y, int dx, int dy);
 void destroy_task(Task* task);
 void enqueue_task(Task* task);
 Task* dequeue_task();
-void enqueue_task_safe(Task* task);
-Task* dequeue_task_safe();
 void signal_finished_tasks();
 void* execute_tasks(void* arg);
 void execute_task(Task* task);
@@ -344,11 +344,16 @@ unsigned int sqrt_(unsigned int n)
 
 void init_queue()
 {
+	tasks.first = NULL;
+	tasks.last = NULL;
+	tasks.is_empty = TRUE;
 	PCHECK(pthread_mutex_init(&tasks.mutex, NULL), "init mutex failed");
+	PCHECK(pthread_cond_init(&tasks.not_empty_cond, NULL), "init condition variable failed");
 }
 
 void uninit_queue()
 {
+	PCHECK(pthread_cond_destroy(&tasks.not_empty_cond), "destroy condition variable failed");
 	PCHECK(pthread_mutex_destroy(&tasks.mutex), "destroy mutex failed");
 }
 
@@ -382,33 +387,32 @@ void destroy_task(Task* task)
 void enqueue_task(Task* task)
 {
 	task->next = NULL;
-	tasks.last->next = task;
+	if (tasks.last != NULL) {
+		tasks.last->next = task;
+	}
 	tasks.last = task;
+	if (tasks.first == NULL) {
+		tasks.first = task;
+		tasks.is_empty = FALSE;
+	}
 }
 
 Task* dequeue_task()
 {
+	if (!tasks.is_empty) {
+		fprintf(stderr, "Error, tried to dequeue from empty queue\n");
+		exit(EXIT_FAILURE);
+	}
+
 	Task* task = tasks.first;
 	tasks.first = tasks.first->next;
+	if (task == tasks.last) {
+		tasks.last = NULL;
+		tasks.is_empty = TRUE;
+	}
 	task->next = NULL;
 	return task;
 }
-
-void enqueue_task_safe(Task* task)
-{
-	lock_queue();
-	enqueue_task(task);
-	unlock_queue();
-}
-
-Task* dequeue_task_safe()
-{
-	lock_queue();
-	Task* task = dequeue_task();
-	unlock_queue();
-	return task;
-}
-
 
 void signal_finished_tasks()
 {
@@ -419,8 +423,15 @@ void* execute_tasks(void* arg)
 {
 	while (TRUE)
 	{
-		//TODO: should we use unsafe version, and unlock after creating sub-tasks?
-		Task* task = dequeue_task_safe();
+		lock_queue();
+		while (tasks.is_empty)
+		{
+			PCHECK(pthread_cond_wait(&tasks.not_empty_cond, &tasks.mutex), "wait on condition variable failed");
+		}
+		Task* task = dequeue_task();
+		//TODO: should we use really unlock here,
+		//      or should we unlock after creating sub-tasks?
+		unlock_queue();
 		execute_task(task);
 		destroy_task(task);
 	}
