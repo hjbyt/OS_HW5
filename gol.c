@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h>
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
@@ -53,7 +54,7 @@ Matrix* helper_matrix = &_matrix2;
 // Function Declarations
 //
 
-void simulate(int steps);
+unsigned long simulate(int steps);
 void simulate_step();
 void simulate_step_on_cell(Matrix* source, Matrix* dest, int x, int y);
 int count_alive_neighbors(Matrix* matrix, int x, int y);
@@ -86,11 +87,12 @@ int main(int argc, char** argv)
 	create_matrix(helper_matrix, game_matrix->n);
 
 	//TODO: Measure time
-	simulate(steps);
+	unsigned long time_milliseconds = simulate(steps);
+	printf("Simulated %d steps in %lu milliseconds\n", steps, time_milliseconds);
 
 	//TODO: comment out
-	//print_matrix(game_matrix);
-	save_matrix(game_matrix, "result.bin");
+	print_matrix(game_matrix);
+	//save_matrix(game_matrix, "result.bin");
 
 	destroy_matrix(helper_matrix);
 	destroy_matrix(game_matrix);
@@ -98,17 +100,30 @@ int main(int argc, char** argv)
 	return EXIT_SUCCESS;
 }
 
-void simulate(int steps)
+unsigned long simulate(int steps)
 {
 	assert(game_matrix != NULL);
 	assert(helper_matrix != NULL);
 	assert(game_matrix != helper_matrix);
 	assert(game_matrix->n == helper_matrix->n);
 
+	// Start time measurement
+	struct timeval start, end, diff;
+	VERIFY(gettimeofday(&start, NULL) == 0, "Error getting time");
+
 	for (int i = 0; i < steps; ++i)
 	{
 		simulate_step();
 	}
+
+	// End time measurement
+	VERIFY(gettimeofday(&end, NULL) == 0, "Error getting time");
+
+	// Return measurement
+	timersub(&end, &start, &diff);
+	unsigned long diff_useconds = 1000000 * diff.tv_sec + diff.tv_usec;
+	unsigned long diff_milliseconds = diff_useconds / 1000;
+	return diff_milliseconds;
 }
 
 void simulate_step()
