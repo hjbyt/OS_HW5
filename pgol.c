@@ -427,7 +427,7 @@ void enqueue_task(Task* task)
 
 Task* dequeue_task()
 {
-	if (!tasks.is_empty) {
+	if (tasks.is_empty) {
 		fprintf(stderr, "Error, tried to dequeue from empty queue\n");
 		exit(EXIT_FAILURE);
 	}
