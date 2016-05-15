@@ -86,8 +86,8 @@ int main(int argc, char** argv)
 	load_matrix(game_matrix, file_path);
 	create_matrix(helper_matrix, game_matrix->n);
 
-	//TODO: Measure time
 	unsigned long time_milliseconds = simulate(steps);
+	//TODO: comment out ?
 	printf("Simulated %d steps in %lu milliseconds\n", steps, time_milliseconds);
 
 	//TODO: comment out
