@@ -13,6 +13,12 @@
 #include <pthread.h>
 
 //
+//TODO: - Debug crashes when running with multiple threads
+//      - check on nova
+//      - improve performance (?)
+//
+
+//
 // Macros
 //
 
