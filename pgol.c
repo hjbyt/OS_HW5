@@ -106,7 +106,6 @@ Task* create_task(int x, int y, int dx, int dy);
 void destroy_task(Task* task);
 void enqueue_task(Task* task);
 Task* dequeue_task();
-void signal_finished_tasks();
 void* execute_tasks(void* arg);
 void execute_task(Task* task);
 
@@ -440,11 +439,6 @@ Task* dequeue_task()
 	}
 	task->next = NULL;
 	return task;
-}
-
-void signal_finished_tasks()
-{
-	//TODO
 }
 
 void* execute_tasks(void* arg)
