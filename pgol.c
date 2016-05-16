@@ -107,7 +107,7 @@ void destroy_task(Task* task);
 void enqueue_task(Task* task);
 Task* dequeue_task();
 void* execute_tasks(void* arg);
-void execute_task(Task* task);
+bool execute_task(Task* task);
 
 //
 // Implementation
@@ -211,6 +211,7 @@ void simulate_step()
 
 void simulate_step_on_cell(Matrix* source, Matrix* dest, int x, int y)
 {
+	//TODO: synchronize writes to dest ??
 	int alive_neighbors = count_alive_neighbors(source, x, y);
 	if (is_alive(source, x, y)) {
 		if (alive_neighbors < 2 || alive_neighbors > 3) {
@@ -455,22 +456,25 @@ void* execute_tasks(void* arg)
 		//      or should we unlock after creating sub-tasks?
 		unlock_queue();
 
-		execute_task(task);
+		bool simulated_cell = execute_task(task);
 		destroy_task(task);
-		int completed_tasks = __sync_add_and_fetch(&completed_tasks_count, 1);
-		if (completed_tasks == matrix_size) {
-			is_simulation_step_complete = TRUE;
-			PCHECK(pthread_cond_signal(&simulation_step_complete_cond), "condition signal failed");
+		if (simulated_cell) {
+			int completed_tasks = __sync_add_and_fetch(&completed_tasks_count, 1);
+			if (completed_tasks == matrix_size) {
+				is_simulation_step_complete = TRUE;
+				PCHECK(pthread_cond_signal(&simulation_step_complete_cond), "condition signal failed");
+			}
 		}
 	}
 
 	return NULL;
 }
 
-void execute_task(Task* task)
+bool execute_task(Task* task)
 {
 	if (task->dx == 1 && task->dy == 1) {
 		simulate_step_on_cell(game_matrix, helper_matrix, task->x, task->y);
+		return TRUE;
 	} else {
 		int half_dx = task->dx / 2;
 		int half_dy = task->dy / 2;
@@ -486,5 +490,6 @@ void execute_task(Task* task)
 		enqueue_task(task3);
 		enqueue_task(task4);
 		unlock_queue();
+		return FALSE;
 	}
 }
