@@ -157,13 +157,14 @@ int main(int argc, char** argv)
 	// Signal the workers to finish
 	// (if we wouldn't do this then we'd be unable to uninit_queue)
 	should_worker_continue = FALSE;
-	//TODO: can we use broadcast?
-	PCHECK(pthread_cond_broadcast(&tasks.not_empty_cond), "condition broadcast failed");
-	//TODO: XXX
-//	for (int i = 0; i < thread_count; ++i)
-//	{
-//		PCHECK(pthread_cond_signal(&tasks.not_empty_cond), "condition signal failed");
-//	}
+	//Note: pthread_cond_broadcast wasn't mentioned in the recitation,
+	// so this code is disabled out, and pthread_cond_signal is iterated instead.
+	//
+	//PCHECK(pthread_cond_broadcast(&tasks.not_empty_cond), "condition broadcast failed");
+	for (int i = 0; i < thread_count; ++i)
+	{
+		PCHECK(pthread_cond_signal(&tasks.not_empty_cond), "condition signal failed");
+	}
 	// Wait for them to actually finish
 	for (int i = 0; i < thread_count; ++i)
 	{
