@@ -15,7 +15,6 @@
 //
 //TODO: - check on nova
 //      - improve performance (?)
-//      - handle an empty file / matrix case...
 //
 
 //
@@ -141,6 +140,10 @@ int main(int argc, char** argv)
 	VERIFY(errno == 0 && thread_count >= 1, "Invallid argument given as <threads>");
 
 	load_matrix(game_matrix, file_path);
+	if (game_matrix->n == 0) {
+		fprintf(stderr, "Error, input file is empty\n");
+		exit(EXIT_FAILURE);
+	}
 	create_matrix(helper_matrix, game_matrix->n);
 	matrix_size = game_matrix->n * game_matrix->n;
 

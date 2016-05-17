@@ -84,6 +84,10 @@ int main(int argc, char** argv)
 	VERIFY(errno == 0 && steps >= 0, "Invallid argument given as <steps>");
 
 	load_matrix(game_matrix, file_path);
+	if (game_matrix->n == 0) {
+		fprintf(stderr, "Error, input file is empty\n");
+		exit(EXIT_FAILURE);
+	}
 	create_matrix(helper_matrix, game_matrix->n);
 
 	unsigned long time_milliseconds = simulate(steps);
