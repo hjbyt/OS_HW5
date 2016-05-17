@@ -57,11 +57,11 @@ Matrix* helper_matrix = &_matrix2;
 unsigned long simulate(int steps);
 void simulate_step();
 void simulate_step_on_cell(Matrix* source, Matrix* dest, int x, int y);
-int count_alive_neighbors(Matrix* matrix, int x, int y);
-bool is_alive(Matrix* matrix, int x, int y);
+int count_alive_neighbors(const Matrix* matrix, int x, int y);
+bool is_alive(const Matrix* matrix, int x, int y);
 void load_matrix(Matrix* matrix, char* file_path);
-void print_matrix(Matrix* matrix);
-void save_matrix(Matrix* matrix, char* file_path);
+void print_matrix(const Matrix* matrix);
+void save_matrix(const Matrix* matrix, char* file_path);
 void create_matrix(Matrix* matrix, int n);
 void destroy_matrix(Matrix* matrix);
 unsigned int sqrt_(unsigned int n);
@@ -168,7 +168,7 @@ void simulate_step_on_cell(Matrix* source, Matrix* dest, int x, int y)
 	}
 }
 
-int count_alive_neighbors(Matrix* matrix, int x, int y)
+int count_alive_neighbors(const Matrix* matrix, int x, int y)
 {
 	int alive_neighbors = 0;
 	for (int i = x - 1; i <= x + 1; ++i)
@@ -188,7 +188,7 @@ int count_alive_neighbors(Matrix* matrix, int x, int y)
 	return alive_neighbors;
 }
 
-bool is_alive(Matrix* matrix, int x, int y)
+bool is_alive(const Matrix* matrix, int x, int y)
 {
 	return matrix->cols[x][y] == 1;
 }
