@@ -13,9 +13,9 @@
 #include <pthread.h>
 
 //
-//TODO: - Debug crashes when running with multiple threads
-//      - check on nova
+//TODO: - check on nova
 //      - improve performance (?)
+//      - handle an empty file / matrix case...
 //
 
 //
@@ -43,6 +43,9 @@ typedef int bool;
 #define FALSE 0
 #define TRUE 1
 
+#define KILO 1024
+#define MEGA (KILO*KILO)
+
 //
 // Structs
 //
@@ -59,14 +62,16 @@ typedef struct Task_t
 	int y;
 	int dx;
 	int dy;
-	struct Task_t* next;
 } Task;
 
-typedef struct TaskQueue_t
-{
-	Task* first;
-	Task* last;
-	bool is_empty;
+#define TASKS_PER_BLOCK (MEGA/sizeof(Task))
+
+typedef struct TaskQueue_t {
+	Task** task_blocks;
+	int blocks_count;
+	int capacity;
+	int first_task_index;
+	int task_count;
 	pthread_mutex_t mutex;
 	pthread_cond_t not_empty_cond;
 } TaskQueue;
@@ -95,26 +100,27 @@ int matrix_size = 0;
 unsigned long simulate(int steps);
 void simulate_step();
 void simulate_step_on_cell(Matrix* source, Matrix* dest, int x, int y);
-int count_alive_neighbors(Matrix* matrix, int x, int y);
-bool is_alive(Matrix* matrix, int x, int y);
+int count_alive_neighbors(const Matrix* matrix, int x, int y);
+bool is_alive(const Matrix* matrix, int x, int y);
 void load_matrix(Matrix* matrix, char* file_path);
-void print_matrix(Matrix* matrix);
-void save_matrix(Matrix* matrix, char* file_path);
+void print_matrix(const Matrix* matrix);
+void save_matrix(const Matrix* matrix, char* file_path);
 void create_matrix(Matrix* matrix, int n);
 void destroy_matrix(Matrix* matrix);
 unsigned int sqrt_(unsigned int n);
 int is_power_of_2 (unsigned int x);
 
-void init_queue();
+void init_queue(int max_size);
 void uninit_queue();
 void lock_queue();
 void unlock_queue();
-Task* create_task(int x, int y, int dx, int dy);
-void destroy_task(Task* task);
-void enqueue_task(Task* task);
-Task* dequeue_task();
+bool is_queue_empty();
+Task* get_task(int index);
+Task* first_task();
+void enqueue_task(const Task* task);
+void dequeue_task(Task* task);
 void* execute_tasks(void* arg);
-bool execute_task(Task* task);
+bool execute_task(const Task* task);
 
 //
 // Implementation
@@ -140,7 +146,7 @@ int main(int argc, char** argv)
 
 	PCHECK(pthread_mutex_init(&simulation_step_mutex, NULL), "init mutex failed");
 	PCHECK(pthread_cond_init(&simulation_step_complete_cond, NULL), "init condition variable failed");
-	init_queue();
+	init_queue(matrix_size);
 
 	pthread_t threads[thread_count];
 	for (int i = 0; i < thread_count; ++i)
@@ -215,9 +221,9 @@ void simulate_step()
 {
 	is_simulation_step_complete = FALSE;
 	completed_tasks_count = 0;
-	Task* task = create_task(0, 0, game_matrix->n, game_matrix->n);
+	Task task = {0, 0, game_matrix->n, game_matrix->n};
 	lock_queue(); //TODO: remove ???
-	enqueue_task(task);
+	enqueue_task(&task);
 	unlock_queue();
 
 	// Wait for task simulation step complete signal
@@ -257,7 +263,7 @@ void simulate_step_on_cell(Matrix* source, Matrix* dest, int x, int y)
 	}
 }
 
-int count_alive_neighbors(Matrix* matrix, int x, int y)
+int count_alive_neighbors(const Matrix* matrix, int x, int y)
 {
 	int alive_neighbors = 0;
 	for (int i = x - 1; i <= x + 1; ++i)
@@ -277,7 +283,7 @@ int count_alive_neighbors(Matrix* matrix, int x, int y)
 	return alive_neighbors;
 }
 
-bool is_alive(Matrix* matrix, int x, int y)
+bool is_alive(const Matrix* matrix, int x, int y)
 {
 	return matrix->cols[x][y] == 1;
 }
@@ -307,7 +313,7 @@ void load_matrix(Matrix* matrix, char* file_path)
 	}
 }
 
-void print_matrix(Matrix* matrix)
+void print_matrix(const Matrix* matrix)
 {
 	//TODO: optimize (?)
 	for (int x = 0; x < matrix->n; ++x)
@@ -322,7 +328,7 @@ void print_matrix(Matrix* matrix)
 	}
 }
 
-void save_matrix(Matrix* matrix, char* file_path)
+void save_matrix(const Matrix* matrix, char* file_path)
 {
 	int fd = creat(file_path, 0666);
 	VERIFY(fd != -1, "open output file failed");
@@ -394,17 +400,27 @@ unsigned int sqrt_(unsigned int n)
     return res;
 }
 
-void init_queue()
+void init_queue(int max_size)
 {
-	tasks.first = NULL;
-	tasks.last = NULL;
-	tasks.is_empty = TRUE;
+	tasks.first_task_index = 0;
+	tasks.blocks_count = (max_size + TASKS_PER_BLOCK - 1) / TASKS_PER_BLOCK;
+	tasks.capacity = TASKS_PER_BLOCK * tasks.blocks_count;
+	tasks.task_blocks = (Task**)malloc(sizeof(*tasks.task_blocks) * tasks.blocks_count);
+	VERIFY(tasks.task_blocks != NULL, "malloc task block pointers failed");
+	for (int i = 0; i < tasks.blocks_count; ++i) {
+		tasks.task_blocks[i] = (Task*)malloc(sizeof(Task) * TASKS_PER_BLOCK);
+		VERIFY(tasks.task_blocks[i] != NULL, "malloc task block failed");
+	}
 	PCHECK(pthread_mutex_init(&tasks.mutex, NULL), "init mutex failed");
 	PCHECK(pthread_cond_init(&tasks.not_empty_cond, NULL), "init condition variable failed");
 }
 
 void uninit_queue()
 {
+	for (int i = 0; i < tasks.blocks_count; ++i) {
+		free(tasks.task_blocks[i]);
+	}
+	free(tasks.task_blocks);
 	PCHECK(pthread_cond_destroy(&tasks.not_empty_cond), "destroy condition variable failed");
 	PCHECK(pthread_mutex_destroy(&tasks.mutex), "destroy mutex failed");
 }
@@ -419,52 +435,48 @@ void unlock_queue()
 	PCHECK(pthread_mutex_unlock(&tasks.mutex), "unlock mutex failed");
 }
 
-Task* create_task(int x, int y, int dx, int dy)
+bool is_queue_empty()
 {
-	Task* task = (Task*)malloc(sizeof(*task));
-	VERIFY(task != NULL, "malloc task failed");
-	task->x = x;
-	task->y = y;
-	task->dx = dx;
-	task->dy = dy;
-	task->next = NULL;
-	return task;
+	return tasks.task_count == 0;
 }
 
-void destroy_task(Task* task)
+Task* get_task(int index)
 {
-	free(task);
+	int task_index = (tasks.first_task_index + index) % tasks.capacity;
+	div_t q = div(task_index, TASKS_PER_BLOCK);
+	return &tasks.task_blocks[q.quot][q.rem];
 }
 
-void enqueue_task(Task* task)
+Task* first_task()
 {
-	task->next = NULL;
-	if (tasks.last != NULL) {
-		tasks.last->next = task;
+	return get_task(0);
+}
+
+void enqueue_task(const Task* task)
+{
+	if (tasks.task_count == tasks.capacity) {
+		fprintf(stderr, "Error, tried to enqueue when the queue is full\n");
+		exit(EXIT_FAILURE);
 	}
-	tasks.last = task;
-	if (tasks.first == NULL) {
-		tasks.first = task;
-		tasks.is_empty = FALSE;
+	Task* new_task = get_task(tasks.task_count);
+	*new_task = *task;
+
+	tasks.task_count += 1;
+	if (tasks.task_count == 1) {
 		PCHECK(pthread_cond_signal(&tasks.not_empty_cond), "condition signal failed");
 	}
 }
 
-Task* dequeue_task()
+void dequeue_task(Task* task)
 {
-	if (tasks.is_empty) {
+	if (is_queue_empty()) {
 		fprintf(stderr, "Error, tried to dequeue from empty queue\n");
 		exit(EXIT_FAILURE);
 	}
 
-	Task* task = tasks.first;
-	tasks.first = tasks.first->next;
-	if (task == tasks.last) {
-		tasks.last = NULL;
-		tasks.is_empty = TRUE;
-	}
-	task->next = NULL;
-	return task;
+	*task = *first_task();
+	tasks.first_task_index = (tasks.first_task_index + 1) % tasks.capacity;
+	tasks.task_count -= 1;
 }
 
 void* execute_tasks(void* arg)
@@ -472,7 +484,7 @@ void* execute_tasks(void* arg)
 	while (TRUE)
 	{
 		lock_queue();
-		while (tasks.is_empty && should_worker_continue)
+		while (is_queue_empty() && should_worker_continue)
 		{
 			PCHECK(pthread_cond_wait(&tasks.not_empty_cond, &tasks.mutex), "wait on condition variable failed");
 		}
@@ -480,13 +492,13 @@ void* execute_tasks(void* arg)
 			unlock_queue();
 			return NULL;
 		}
-		Task* task = dequeue_task();
+		Task task;
+		dequeue_task(&task);
 		//TODO: should we use really unlock here,
 		//      or should we unlock after creating sub-tasks?
 		unlock_queue();
 
-		bool simulated_cell = execute_task(task);
-		destroy_task(task);
+		bool simulated_cell = execute_task(&task);
 		if (simulated_cell) {
 			int completed_tasks = __sync_add_and_fetch(&completed_tasks_count, 1);
 			if (completed_tasks == matrix_size) {
@@ -499,7 +511,7 @@ void* execute_tasks(void* arg)
 	return NULL;
 }
 
-bool execute_task(Task* task)
+bool execute_task(const Task* task)
 {
 	if (task->dx == 1 && task->dy == 1) {
 		simulate_step_on_cell(game_matrix, helper_matrix, task->x, task->y);
@@ -509,15 +521,15 @@ bool execute_task(Task* task)
 		int half_dy = task->dy / 2;
 		assert(half_dx * 2 == task->dx);
 		assert(half_dy * 2 == task->dy);
-		Task* task1 = create_task(task->x          , task->y          , half_dx, half_dy);
-		Task* task2 = create_task(task->x + half_dx, task->y          , half_dx, half_dy);
-		Task* task3 = create_task(task->x          , task->y + half_dy, half_dx, half_dy);
-		Task* task4 = create_task(task->x + half_dx, task->y + half_dy, half_dx, half_dy);
+		Task task1 = {task->x          , task->y          , half_dx, half_dy};
+		Task task2 = {task->x + half_dx, task->y          , half_dx, half_dy};
+		Task task3 = {task->x          , task->y + half_dy, half_dx, half_dy};
+		Task task4 = {task->x + half_dx, task->y + half_dy, half_dx, half_dy};
 		lock_queue();
-		enqueue_task(task1);
-		enqueue_task(task2);
-		enqueue_task(task3);
-		enqueue_task(task4);
+		enqueue_task(&task1);
+		enqueue_task(&task2);
+		enqueue_task(&task3);
+		enqueue_task(&task4);
 		unlock_queue();
 		return FALSE;
 	}
