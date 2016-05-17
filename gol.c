@@ -206,47 +206,51 @@ void load_matrix(Matrix* matrix, char* file_path)
 
 	create_matrix(matrix, n);
 
-	//TODO: optimize to read more than 1 byte at a time.
+	char buffer[matrix->n];
 	for (int x = 0; x < n; ++x)
 	{
+
+		VERIFY(read(fd, buffer, matrix->n) == matrix->n, "read from input failed");
 		for (int y = 0; y < n; ++y)
 		{
-			char c;
-			VERIFY(read(fd, &c, 1) == 1, "read from input failed");
-			matrix->cols[x][y] = c == '\0' ? 0 : 1;
+			matrix->cols[x][y] = buffer[y] == '\0' ? 0 : 1;
 		}
 	}
+
+	close(fd);
 }
 
-void print_matrix(Matrix* matrix)
+void print_matrix(const Matrix* matrix)
 {
-	//TODO: optimize (?)
+	char buffer[matrix->n+2];
 	for (int x = 0; x < matrix->n; ++x)
 	{
 		for (int y = 0; y < matrix->n; ++y)
 		{
-			char c = (char)matrix->cols[x][y];
-			c = c == 1 ? 'O' : '.';
-			printf("%c", c);
+			buffer[y] = matrix->cols[x][y] ? 'O' : '.';
 		}
-		printf("\n");
+		buffer[matrix->n] = '\n';
+		buffer[matrix->n + 1] = '\0';
+		write(STDOUT_FILENO, buffer, sizeof(buffer));
 	}
 }
 
-void save_matrix(Matrix* matrix, char* file_path)
+void save_matrix(const Matrix* matrix, char* file_path)
 {
 	int fd = creat(file_path, 0666);
 	VERIFY(fd != -1, "open output file failed");
 
-	//TODO: optimize (?)
+	char buffer[matrix->n];
 	for (int x = 0; x < matrix->n; ++x)
 	{
 		for (int y = 0; y < matrix->n; ++y)
 		{
-			char c = (char)matrix->cols[x][y];
-			VERIFY(write(fd, &c, 1) == 1, "write to output failed");
+			buffer[y] = matrix->cols[x][y];
 		}
+		VERIFY(write(fd, buffer, sizeof(buffer)), "write to output failed");
 	}
+
+	close(fd);
 }
 
 void create_matrix(Matrix* matrix, int n)
