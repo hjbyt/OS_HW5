@@ -82,6 +82,7 @@ Matrix* game_matrix = &_matrix1;
 Matrix* helper_matrix = &_matrix2;
 TaskQueue tasks;
 bool is_simulation_step_complete = FALSE;
+bool should_worker_continue = TRUE;
 pthread_cond_t simulation_step_complete_cond;
 pthread_mutex_t simulation_step_mutex;
 int completed_tasks_count = 0;
@@ -139,6 +140,7 @@ int main(int argc, char** argv)
 
 	PCHECK(pthread_mutex_init(&simulation_step_mutex, NULL), "init mutex failed");
 	PCHECK(pthread_cond_init(&simulation_step_complete_cond, NULL), "init condition variable failed");
+	init_queue();
 
 	pthread_t threads[thread_count];
 	for (int i = 0; i < thread_count; ++i)
@@ -151,14 +153,30 @@ int main(int argc, char** argv)
 	printf("Simulated %d steps in %lu milliseconds using %d threads\n",
 			steps, time_milliseconds, thread_count);
 
+
+	// Signal the workers to finish
+	// (if we wouldn't do this then we'd be unable to uninit_queue)
+	should_worker_continue = FALSE;
+	//TODO: can we use broadcast?
+	PCHECK(pthread_cond_broadcast(&tasks.not_empty_cond), "condition broadcast failed");
+	//TODO: XXX
+//	for (int i = 0; i < thread_count; ++i)
+//	{
+//		PCHECK(pthread_cond_signal(&tasks.not_empty_cond), "condition signal failed");
+//	}
+	// Wait for them to actually finish
+	for (int i = 0; i < thread_count; ++i)
+	{
+		PCHECK(pthread_join(threads[i], NULL), "thread join failed");
+	}
+
 	PCHECK(pthread_cond_destroy(&simulation_step_complete_cond), "destroy condition variable failed");
 	PCHECK(pthread_mutex_destroy(&simulation_step_mutex), "destroy mutex failed");
+	uninit_queue();
 
 	//TODO: comment out
 	print_matrix(game_matrix);
 	//save_matrix(game_matrix, "result.bin");
-
-	//TODO: cancel, join threads?
 
 	destroy_matrix(helper_matrix);
 	destroy_matrix(game_matrix);
@@ -453,9 +471,13 @@ void* execute_tasks(void* arg)
 	while (TRUE)
 	{
 		lock_queue();
-		while (tasks.is_empty)
+		while (tasks.is_empty && should_worker_continue)
 		{
 			PCHECK(pthread_cond_wait(&tasks.not_empty_cond, &tasks.mutex), "wait on condition variable failed");
+		}
+		if (!should_worker_continue) {
+			unlock_queue();
+			return NULL;
 		}
 		Task* task = dequeue_task();
 		//TODO: should we use really unlock here,
