@@ -13,11 +13,6 @@
 #include <pthread.h>
 
 //
-//TODO: - check on nova
-//      - improve performance (?)
-//
-
-//
 // Macros
 //
 
@@ -500,8 +495,6 @@ void* execute_tasks(void* arg)
 		}
 		Task task;
 		dequeue_task(&task);
-		//TODO: should we use really unlock here,
-		//      or should we unlock after creating sub-tasks?
 		unlock_queue();
 
 		bool simulated_cell = execute_task(&task);
