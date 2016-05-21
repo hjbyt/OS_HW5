@@ -313,6 +313,7 @@ void load_matrix(Matrix* matrix, char* file_path)
 	close(fd);
 }
 
+//Note: this is for debugging purposes only
 void print_matrix(const Matrix* matrix)
 {
 	char buffer[matrix->n+2];
@@ -329,6 +330,7 @@ void print_matrix(const Matrix* matrix)
 	}
 }
 
+//Note: this is for debugging purposes only
 void save_matrix(const Matrix* matrix, char* file_path)
 {
 	int fd = creat(file_path, 0666);
