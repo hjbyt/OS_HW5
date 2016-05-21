@@ -302,17 +302,18 @@ void load_matrix(Matrix* matrix, char* file_path)
 
 	create_matrix(matrix, n);
 
-	char buffer[matrix->n];
+	char* buffer = (char*)malloc(n);
+	VERIFY(buffer != NULL, "malloc buffer failed");
 	for (int x = 0; x < n; ++x)
 	{
-
-		VERIFY(read(fd, buffer, matrix->n) == matrix->n, "read from input failed");
+		VERIFY(read(fd, buffer, n) == n, "read from input failed");
 		for (int y = 0; y < n; ++y)
 		{
 			matrix->cols[x][y] = buffer[y] == '\0' ? 0 : 1;
 		}
 	}
 
+	free(buffer);
 	close(fd);
 }
 
