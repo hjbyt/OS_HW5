@@ -115,7 +115,8 @@ unsigned long simulate(int steps)
 	struct timeval start, end, diff;
 	VERIFY(gettimeofday(&start, NULL) == 0, "Error getting time");
 
-	for (int i = 0; i < steps; ++i)
+	int i;
+	for (i = 0; i < steps; ++i)
 	{
 		simulate_step();
 	}
@@ -132,9 +133,10 @@ unsigned long simulate(int steps)
 
 void simulate_step()
 {
-	for (int x = 0; x < game_matrix->n; ++x)
+	int x, y;
+	for (x = 0; x < game_matrix->n; ++x)
 	{
-		for (int y = 0; y < game_matrix->n; ++y)
+		for (y = 0; y < game_matrix->n; ++y)
 		{
 			simulate_step_on_cell(game_matrix, helper_matrix, x, y);
 		}
@@ -171,9 +173,10 @@ void simulate_step_on_cell(Matrix* source, Matrix* dest, int x, int y)
 int count_alive_neighbors(const Matrix* matrix, int x, int y)
 {
 	int alive_neighbors = 0;
-	for (int i = x - 1; i <= x + 1; ++i)
+	int i, j;
+	for (i = x - 1; i <= x + 1; ++i)
 	{
-		for (int j = y - 1; j <= y + 1; ++j)
+		for (j = y - 1; j <= y + 1; ++j)
 		{
 			if (i < 0 || i >= matrix->n
 					|| j < 0 || j >= matrix->n
@@ -208,10 +211,11 @@ void load_matrix(Matrix* matrix, char* file_path)
 
 	char* buffer = (char*)malloc(n);
 	VERIFY(buffer != NULL, "malloc buffer failed");
-	for (int x = 0; x < n; ++x)
+	int x, y;
+	for (x = 0; x < n; ++x)
 	{
 		VERIFY(read(fd, buffer, n) == n, "read from input failed");
-		for (int y = 0; y < n; ++y)
+		for (y = 0; y < n; ++y)
 		{
 			matrix->cols[x][y] = buffer[y] == '\0' ? 0 : 1;
 		}
@@ -224,9 +228,10 @@ void load_matrix(Matrix* matrix, char* file_path)
 void print_matrix(const Matrix* matrix)
 {
 	char buffer[matrix->n+2];
-	for (int x = 0; x < matrix->n; ++x)
+	int x, y;
+	for (x = 0; x < matrix->n; ++x)
 	{
-		for (int y = 0; y < matrix->n; ++y)
+		for (y = 0; y < matrix->n; ++y)
 		{
 			buffer[y] = matrix->cols[x][y] ? 'O' : '.';
 		}
@@ -242,9 +247,10 @@ void save_matrix(const Matrix* matrix, char* file_path)
 	VERIFY(fd != -1, "open output file failed");
 
 	char buffer[matrix->n];
-	for (int x = 0; x < matrix->n; ++x)
+	int x, y;
+	for (x = 0; x < matrix->n; ++x)
 	{
-		for (int y = 0; y < matrix->n; ++y)
+		for (y = 0; y < matrix->n; ++y)
 		{
 			buffer[y] = matrix->cols[x][y];
 		}
@@ -259,7 +265,8 @@ void create_matrix(Matrix* matrix, int n)
 	matrix->n = n;
 	matrix->cols = (int**)malloc(sizeof(int*) * n);
 	VERIFY(matrix->cols != NULL, "malloc failed");
-	for (int i = 0; i < n; ++i)
+	int i;
+	for (i = 0; i < n; ++i)
 	{
 		matrix->cols[i] = (int*)malloc(sizeof(int) * n);
 		VERIFY(matrix->cols[i] != NULL, "malloc failed");
@@ -268,7 +275,8 @@ void create_matrix(Matrix* matrix, int n)
 
 void destroy_matrix(Matrix* matrix)
 {
-	for (int i = 0; i < matrix->n; ++i)
+	int i;
+	for (i = 0; i < matrix->n; ++i)
 	{
 		free(matrix->cols[i]);
 	}
