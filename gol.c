@@ -91,11 +91,9 @@ int main(int argc, char** argv)
 	create_matrix(helper_matrix, game_matrix->n);
 
 	unsigned long time_milliseconds = simulate(steps);
-	//TODO: comment out ?
 	printf("Simulated %d steps in %lu milliseconds\n", steps, time_milliseconds);
 
-	//TODO: comment out
-	print_matrix(game_matrix);
+	//print_matrix(game_matrix);
 	//save_matrix(game_matrix, "result.bin");
 
 	destroy_matrix(helper_matrix);

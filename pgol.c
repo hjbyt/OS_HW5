@@ -154,10 +154,11 @@ int main(int argc, char** argv)
 	}
 
 	unsigned long time_milliseconds = simulate(steps);
-	//TODO: comment out ?
 	printf("Simulated %d steps in %lu milliseconds using %d threads\n",
 			steps, time_milliseconds, thread_count);
 
+	//print_matrix(game_matrix);
+	//save_matrix(game_matrix, "result.bin");
 
 	// Signal the workers to finish
 	// (if we wouldn't do this then we'd be unable to uninit_queue)
@@ -179,10 +180,6 @@ int main(int argc, char** argv)
 	PCHECK(pthread_cond_destroy(&simulation_step_complete_cond), "destroy condition variable failed");
 	PCHECK(pthread_mutex_destroy(&simulation_step_mutex), "destroy mutex failed");
 	uninit_queue();
-
-	//TODO: comment out
-	print_matrix(game_matrix);
-	//save_matrix(game_matrix, "result.bin");
 
 	destroy_matrix(helper_matrix);
 	destroy_matrix(game_matrix);
