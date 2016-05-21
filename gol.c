@@ -74,7 +74,7 @@ int is_power_of_2 (unsigned int x);
 int main(int argc, char** argv)
 {
 	if (argc != 3) {
-		printf("Usage: ./gol <file> <steps> <threads>\n");
+		printf("Usage: ./gol <file> <steps>\n");
 		return EXIT_FAILURE;
 	}
 
