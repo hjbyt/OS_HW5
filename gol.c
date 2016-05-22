@@ -30,6 +30,9 @@ typedef int bool;
 #define FALSE 0
 #define TRUE 1
 
+#define KILO 1024
+#define MEGA (KILO*KILO)
+
 //
 // Structs
 //
@@ -207,15 +210,27 @@ void load_matrix(Matrix* matrix, char* file_path)
 
 	create_matrix(matrix, n);
 
-	char* buffer = (char*)malloc(n);
+	char* buffer = (char*)malloc(MEGA);
 	VERIFY(buffer != NULL, "malloc buffer failed");
 	int x, y;
+	int i = 0;
+	int bytes_read = 0;
 	for (x = 0; x < n; ++x)
 	{
-		VERIFY(read(fd, buffer, n) == n, "read from input failed");
 		for (y = 0; y < n; ++y)
 		{
-			matrix->cols[x][y] = buffer[y] == '\0' ? 0 : 1;
+			if (i == bytes_read) {
+				bytes_read = read(fd, buffer, MEGA);
+				VERIFY(bytes_read != -1, "read from input failed");
+				if (bytes_read == 0) {
+					// Note: this shouldn't happen because we verified the file size.
+					fprintf(stderr, "Error, input ended prematurely.\n");
+					exit(EXIT_FAILURE);
+				}
+				i = 0;
+			}
+			matrix->cols[x][y] = buffer[i] == '\0' ? 0 : 1;
+			i += 1;
 		}
 	}
 
