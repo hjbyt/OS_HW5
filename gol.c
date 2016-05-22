@@ -241,7 +241,8 @@ void load_matrix(Matrix* matrix, char* file_path)
 //Note: this is for debugging purposes only
 void print_matrix(const Matrix* matrix)
 {
-	char buffer[matrix->n+2];
+	char* buffer = (char*)malloc(matrix->n + 2);
+	VERIFY(buffer != NULL, "malloc buffer failed");
 	int x, y;
 	for (x = 0; x < matrix->n; ++x)
 	{
@@ -251,8 +252,9 @@ void print_matrix(const Matrix* matrix)
 		}
 		buffer[matrix->n] = '\n';
 		buffer[matrix->n + 1] = '\0';
-		VERIFY(write(STDOUT_FILENO, buffer, sizeof(buffer)), "print matrix failed");
+		VERIFY(write(STDOUT_FILENO, buffer, matrix->n + 2), "print matrix failed");
 	}
+	free(buffer);
 }
 
 //Note: this is for debugging purposes only
@@ -261,7 +263,8 @@ void save_matrix(const Matrix* matrix, char* file_path)
 	int fd = creat(file_path, 0666);
 	VERIFY(fd != -1, "open output file failed");
 
-	char buffer[matrix->n];
+	char* buffer = (char*)malloc(matrix->n);
+	VERIFY(buffer != NULL, "malloc buffer failed");
 	int x, y;
 	for (x = 0; x < matrix->n; ++x)
 	{
@@ -269,8 +272,9 @@ void save_matrix(const Matrix* matrix, char* file_path)
 		{
 			buffer[y] = matrix->cols[x][y];
 		}
-		VERIFY(write(fd, buffer, sizeof(buffer)), "write to output failed");
+		VERIFY(write(fd, buffer, matrix->n), "write to output failed");
 	}
+	free(buffer);
 
 	close(fd);
 }
