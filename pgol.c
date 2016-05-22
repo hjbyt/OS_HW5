@@ -86,6 +86,7 @@ pthread_cond_t simulation_step_complete_cond;
 pthread_mutex_t simulation_step_mutex;
 int completed_tasks_count = 0;
 int matrix_size = 0;
+int thread_count = 0;
 
 //
 // Function Declarations
@@ -131,7 +132,7 @@ int main(int argc, char** argv)
 	errno = 0;
 	int steps = strtol(argv[2], NULL, 0);
 	VERIFY(errno == 0 && steps >= 0, "Invallid argument given as <steps>");
-	int thread_count = strtol(argv[3], NULL, 0);
+	thread_count = strtol(argv[3], NULL, 0);
 	VERIFY(errno == 0 && thread_count >= 1, "Invallid argument given as <threads>");
 
 	load_matrix(game_matrix, file_path);
@@ -219,11 +220,18 @@ void simulate_step()
 	is_simulation_step_complete = FALSE;
 	completed_tasks_count = 0;
 	Task task = {0, 0, game_matrix->n, game_matrix->n};
-	// Note: locking is necessary here in order to prevent a race such as this:
-	// http://stackoverflow.com/questions/4544234/calling-pthread-cond-signal-without-locking-mutex
-	lock_queue();
-	enqueue_task(&task);
-	unlock_queue();
+	if (thread_count == 1) {
+		// Note: locking is necessary here in order to prevent a race such as this:
+		// http://stackoverflow.com/questions/4544234/calling-pthread-cond-signal-without-locking-mutex
+		lock_queue();
+		enqueue_task(&task);
+		unlock_queue();
+	} else {
+		// Since at most 1 thread can miss the signal, there is no need to lock
+		// (see: http://moodle.tau.ac.il/mod/forum/discuss.php?d=65528)
+		enqueue_task(&task);
+	}
+
 
 	// Wait for task simulation step complete signal
 	PCHECK(pthread_mutex_lock(&simulation_step_mutex), "lock mutex failed");
