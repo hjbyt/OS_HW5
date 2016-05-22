@@ -326,7 +326,7 @@ void print_matrix(const Matrix* matrix)
 		}
 		buffer[matrix->n] = '\n';
 		buffer[matrix->n + 1] = '\0';
-		write(STDOUT_FILENO, buffer, sizeof(buffer));
+		VERIFY(write(STDOUT_FILENO, buffer, sizeof(buffer)), "print matrix failed");
 	}
 }
 
