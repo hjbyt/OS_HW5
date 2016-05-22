@@ -164,7 +164,7 @@ int main(int argc, char** argv)
 	// (if we wouldn't do this then we'd be unable to uninit_queue)
 	should_worker_continue = FALSE;
 	//Note: pthread_cond_broadcast wasn't mentioned in the recitation,
-	// so this code is disabled out, and pthread_cond_signal is iterated instead.
+	// so this code is disabled, and pthread_cond_signal is iterated instead.
 	//
 	//PCHECK(pthread_cond_broadcast(&tasks.not_empty_cond), "condition broadcast failed");
 	for (i = 0; i < thread_count; ++i)
@@ -219,8 +219,11 @@ void simulate_step()
 	is_simulation_step_complete = FALSE;
 	completed_tasks_count = 0;
 	Task task = {0, 0, game_matrix->n, game_matrix->n};
-	// Note: no need to lock here, since the workers are waiting anyway.
+	// Note: locking is necessary here in order to prevent a race such as this:
+	// http://stackoverflow.com/questions/4544234/calling-pthread-cond-signal-without-locking-mutex
+	lock_queue();
 	enqueue_task(&task);
+	unlock_queue();
 
 	// Wait for task simulation step complete signal
 	PCHECK(pthread_mutex_lock(&simulation_step_mutex), "lock mutex failed");
@@ -527,7 +530,11 @@ void* execute_tasks(void* arg)
 			int completed_tasks = __sync_add_and_fetch(&completed_tasks_count, 1);
 			if (completed_tasks == matrix_size) {
 				is_simulation_step_complete = TRUE;
+				// Note: locking is necessary here in order to prevent a race such as this:
+				// http://stackoverflow.com/questions/4544234/calling-pthread-cond-signal-without-locking-mutex
+				PCHECK(pthread_mutex_lock(&simulation_step_mutex), "lock mutex failed");
 				PCHECK(pthread_cond_signal(&simulation_step_complete_cond), "condition signal failed");
+				PCHECK(pthread_mutex_unlock(&simulation_step_mutex), "unlock mutex failed");
 			}
 		}
 	}
